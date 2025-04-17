@@ -16,8 +16,9 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw; /* 使用视口单位 */
+    		height: 100vh;
+    		transform: none !important; /* 禁用缩放影响 */
             background: var(--background);
             display: flex;
             flex-direction: column;
@@ -91,6 +92,8 @@
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
         }
+
+        
 
         /* 主要内容样式 */
         body {
@@ -215,6 +218,7 @@
             position: absolute;
             bottom: 3rem; /* 与版本号底边对齐 */
             right: 3rem;
+            z-index: 100; /* 确保按钮在正确层级 */
             width: 40px;
             height: 40px;
             background: var(--primary);
@@ -243,7 +247,7 @@
             width: 100%;
             height: 100%;
             background: rgba(7, 8, 11, 0.95);
-            display: none;
+            display: none; /* 确保初始隐藏 */
             align-items: center;
             justify-content: center;
             z-index: 2000;
@@ -251,8 +255,11 @@
         }
 
         .help-image {
-            max-width: 90%;
-            max-height: 90%;
+            width: auto;
+		    height: auto;
+		    max-width: min(90vw, 1200px);
+		    max-height: min(80vh, 1000px);
+		    margin: auto;
             border: 2px solid var(--primary);
             border-radius: 10px;
             box-shadow: 0 0 30px rgba(0, 177, 149, 0.3);
@@ -271,6 +278,22 @@
                 transform: scale(0.8);
                 width: 125%;
             }
+        }
+
+        /* 增加移动端媒体查询 */
+        @media (orientation: portrait) and (max-width: 768px) {
+            body {
+                transform: none !important;
+                width: 100% !important;
+            }
+            .help-image {
+            width: 95vw; /* 竖屏时使用视口宽度单位 */
+            height: auto;
+            object-fit: contain;
+    }
+
+
+            
         }
 
         [data-char="↵"]::after {
@@ -292,7 +315,7 @@
     </div>
     <div class="right-panel">
         <div id="result" class="result-box"></div>
-        <div class="version">lokam 1.03</div>
+        <div class="version">lokam 1.04</div>
         <div class="help-button">?</div>
     </div>
     <div class="help-overlay" id="helpOverlay">
