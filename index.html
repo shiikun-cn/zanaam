@@ -194,6 +194,38 @@
             color: var(--background);
         }
 
+
+        /* 包裹单词那一行的容器，作为定位上下文 */
+        .word-line-wrapper {
+          position: relative;
+          display: inline-block;   /* 宽度与文字一致 */
+          line-height: 1;          /* 确保高度 = 字体大小 */
+          margin-bottom: 0.5rem; 
+        }
+
+        /* “朗读”按钮：绝对定位到容器底部、右侧 */
+        .read-button {
+          position: absolute;
+          bottom: 0;               /* 与 .word-line 底边贴合 */
+          right: -4.6rem;          /* 往右偏一点，防止遮字；根据字体大小微调 */
+          background: none;        /* 去掉背景 */
+          border: none;            /* 去掉边框 */
+          padding: 0;
+          font-size: 2.8rem;       /* 图标大小，可调 */
+          line-height: 1;          /* 和文字行高一致 */
+          cursor: pointer;
+        }
+
+        /* 悬停时可以轻微放大（可选） */
+        .read-button:hover {
+          transform: scale(1.0);
+          text-shadow: 
+            -2.5px -2.5px 0 var(--primary),
+             2.5px -2.5px 0 var(--primary),
+            -2.5px  2.5px 0 var(--primary),
+             2.5px  2.5px 0 var(--primary);
+        }
+
         .result-box {
             font-size: 6.5rem;
             font-family: 'Kiineza';
@@ -315,8 +347,10 @@
         <div class="keyboard" id="keyboard"></div>
     </div>
     <div class="right-panel">
-        <div id="result" class="result-box"></div>
-        <div class="version">lokam 1.0=</div>
+        <div class="result-container">
+          <div id="result" class="result-box"></div>
+        </div>
+        <div class="version">lokam 1.10</div>
         <div class="help-button">?</div>
     </div>
     <div class="help-overlay" id="helpOverlay">
@@ -400,19 +434,170 @@ function handleKeyPress(char) {
     const display = document.getElementById('display');
     
     if(char === '×') {
-        display.value = '';
-        document.getElementById('result').innerHTML = '';
+      display.value = '';
+      document.getElementById('result').innerHTML = '';
+      // 没有 .word-line-wrapper 了，querySelector 会拿到 null，所以下面要先判空
+      const oldBtn = document.querySelector('.word-line-wrapper .read-button');
+      if (oldBtn) oldBtn.style.display = 'none';
     } else if(char === '↵') {
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = display.value ? 
-            (wordDB[display.value] ? 
-                `<div>${display.value}</div><div class="translation" style="color: var(--primary)">${wordDB[display.value]}</div>` :
-                '<div class="translation">mA sozanAm/u xekAs/i.</div>'
-            ) : '<div class="translation">naz/o kem/u xIn/ok/i.</div>';
+      const resultDiv = document.getElementById('result');
+      if (!display.value) {
+        resultDiv.innerHTML = `<div class="translation">naz/o kem/u xIn/ok/i.</div>`;
+      } else if (!wordDB[display.value]) {
+        resultDiv.innerHTML = `<div class="translation">mA sozanAm/u xekAs/i.</div>`;
+      } else {
+        // 成功查到：词 + 按钮 同行，翻译在下
+        resultDiv.innerHTML = `
+          <div class="word-line-wrapper">
+            <span class="word-line">${display.value}</span>
+            <button class="read-button">🗣️</button>
+          </div>
+          <div class="translation" style="color: var(--primary)">
+            ${wordDB[display.value]}
+          </div>
+        `;
+        bindReadButton(display.value);
+      }
     } else {
         display.value += char;
         display.value = processInput(display.value);
     }
+}
+
+// ——— 朗读所需的全局变量 ———
+
+// （1）拆节映射表
+const kanaMap = {
+  // v 系列
+  "vo": "ヴォ", "vu": "ヴ", "ve": "ヴェ", "vi": "ヴィ", "va": "ヴァ", 
+  "vO": "ヴォー", "vU": "ヴー", "vE": "ヴェー", "vI": "ヴィー", "vA": "ヴァー",
+  
+  // b 系列
+  "bo": "ボ", "bu": "ブ", "be": "ベ", "bi": "ビ", "ba": "バ", 
+  "bO": "ボー", "bU": "ブー", "bE": "ベー", "bI": "ビー", "bA": "バー",
+  
+  // m 系列
+  "mo": "モ", "mu": "ム", "me": "メ", "mi": "ミ", "ma": "マ", 
+  "mO": "モー", "mU": "ムー", "mE": "メー", "mI": "ミー", "mA": "マー",
+  
+  // t 系列
+  "to": "ト", "tu": "トゥ", "te": "テ", "ti": "ティ", "ta": "タ", 
+  "tO": "トー", "tU": "トゥー", "tE": "テー", "tI": "ティー", "tA": "ター",
+  
+  // d 系列
+  "do": "ド", "du": "ドゥ", "de": "デ", "di": "ディ", "da": "ダ", 
+  "dO": "ドー", "dU": "ドゥー", "dE": "デー", "dI": "ディー", "dA": "ダー",
+  
+  // n 系列
+  "no": "ノ", "nu": "ヌ", "ne": "ネ", "ni": "ニ", "na": "ナ", 
+  "nO": "ノー", "nU": "ヌー", "nE": "ネー", "nI": "ニー", "nA": "ナー",
+  
+  // s 系列
+  "so": "ソ", "su": "ス", "se": "セ", "si": "スィ", "sa": "サ", 
+  "sO": "ソー", "sU": "スー", "sE": "セー", "sI": "スィー", "sA": "サー",
+  
+  // z 系列
+  "zo": "ゾ", "zu": "ヅ", "ze": "ゼ", "zi": "ヅィ", "za": "ザ", 
+  "zO": "ゾー", "zU": "ヅー", "zE": "ゼー", "zI": "ヅィー", "zA": "ザー",
+  
+  // l 系列
+  "lo": "ロ", "lu": "ル", "le": "レ", "li": "リ", "la": "ラ", 
+  "lO": "ロー", "lU": "ルー", "lE": "レー", "lI": "リー", "lA": "ラー",
+  
+  // k 系列
+  "ko": "コ", "ku": "ク", "ke": "ケ", "ki": "キ", "ka": "カ", 
+  "kO": "コー", "kU": "クー", "kE": "ケー", "kI": "キー", "kA": "カー",
+  
+  // g 系列
+  "go": "ゴ", "gu": "グ", "ge": "ゲ", "gi": "ギ", "ga": "ガ", 
+  "gO": "ゴー", "gU": "グー", "gE": "ゲー", "gI": "ギー", "gA": "ガー",
+  
+  // h 系列
+  "ho": "ホ", "hu": "フ", "he": "ヘ", "hi": "ヒ", "ha": "ハ", 
+  "hO": "ホー", "hU": "フー", "hE": "ヘー", "hI": "ヒー", "hA": "ハー",
+  
+  // x 系列
+  "xo": "オ", "xu": "ウ", "xe": "エ", "xi": "イ", "xa": "ア", 
+  "xO": "オー", "xU": "ウー", "xE": "エー", "xI": "イー", "xA": "アー",
+  
+  // 单个辅音
+  "v": "ヴ", "b": "ブ", "m": "ム", "t": "トゥ", "d": "ドゥ", 
+  "n": "ヌ", "s": "ス", "z": "ヅ", "l": "ル", "k": "ク", 
+  "g": "グ", "h": "フ"
+};
+
+// （2）预加载语音列表
+let voices = [];
+function loadVoices() {
+  voices = speechSynthesis.getVoices();
+}
+if (speechSynthesis.onvoiceschanged !== undefined) {
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+loadVoices();
+
+// ——— 工具函数 ———
+
+// 拆成两字母一节，尾部不足两字母当单字节节
+function splitSyllables(word) {
+  const sylls = [];
+  for (let i = 0; i < word.length; i += 2) {
+    sylls.push(word.substring(i, i + 2));
+  }
+  return sylls;
+}
+
+// 根据 kanaMap 拼出假名串
+function toKana(word) {
+  return splitSyllables(word)
+    .map(s => kanaMap[s] || "")  // 如果找不到可以留空或加一个默认
+    .join("");
+}
+
+// 发声函数
+function speakKana(kanaText) {
+  if (!kanaText) return;
+  const u = new SpeechSynthesisUtterance(kanaText);
+  u.lang = 'ja-JP';
+  // 选一个日语女声（示例）
+  const v = voices.find(v => v.name.includes('Ayumi') || v.lang === 'ja-JP');
+  if (v) u.voice = v;
+  u.pitch = 1;
+  u.rate = 1;
+  u.volume = 5;
+  speechSynthesis.speak(u);
+}
+
+// ——— 绑定按钮与结果显示逻辑 ———
+
+const readBtn = document.getElementById('readBtn');
+const resultDiv = document.getElementById('result');
+
+function updateReadButton(word) {
+  if (word && wordDB[word]) {
+    readBtn.style.display = 'inline-block';
+    readBtn.onclick = () => {
+      const kana = toKana(word);
+      speakKana(kana);
+    };
+  } else {
+    readBtn.style.display = 'none';
+    readBtn.onclick = null;
+  }
+}
+
+function bindReadButton(word) {
+  const btn = document.querySelector('.word-line-wrapper .read-button');
+  // 刚插入就立即隐藏，等 updateReadButton 决定是否显示
+  btn.style.display = 'none';
+
+  if (word && wordDB[word]) {
+    btn.style.display = 'inline-block';
+    btn.onclick = () => {
+      const kana = toKana(word);
+      speakKana(kana);
+    };
+  }
 }
 
 document.querySelector('.help-button').addEventListener('click', function(e) {
