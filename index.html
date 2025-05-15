@@ -590,8 +590,12 @@ function bindReadButton(word) {
   const btn = document.querySelector('.word-line-wrapper .read-button');
   // 刚插入就立即隐藏，等 updateReadButton 决定是否显示
   btn.style.display = 'none';
-
-  if (word && wordDB[word]) {
+  btn.onclick = null;
+  // 只有在：
+  //  1. 浏览器 support SpeechSynthesis 并且已经加载到了至少一个 voice
+  //  2. 词条确实在数据库里有翻译
+  // 时，才显示并绑定朗读逻辑
+  if (voices.length > 0 && wordDB[word]) {
     btn.style.display = 'inline-block';
     btn.onclick = () => {
       const kana = toKana(word);
